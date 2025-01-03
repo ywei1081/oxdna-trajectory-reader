@@ -86,9 +86,17 @@ class TrajFileIdx:
 
 
 class Trajectory:
-    def __init__(self, file_path: str, chunk_size: int = CHUNK_SIZE):
+    """
+    Wrapper for oxDNA trajectory or configuration file
+
+    :param file_path: path to trajectory or configuration file
+    :param chunk_size: number of configurations to read and cache at a time
+    :param backbone: type of `Configuration.backbone`, 'oxDNA1', 'oxDNA2', or 'RNA'
+    """
+    def __init__(self, file_path: str, chunk_size: int = CHUNK_SIZE, backbone='oxDNA1'):
         self.file_path = file_path
         self._chunk_size = chunk_size
+        self.backbone = backbone
         self._file_size = os.path.getsize(file_path)
         self._idx = TrajFileIdx(self)
         self._cached_confs = []
@@ -105,7 +113,8 @@ class Trajectory:
         offset = self._idx[index]
         offsets, configurations = read_configurations(self.file_path, offset, self._chunk_size)
         self._idx._update_end_offsets(index, offsets)
-        return [Configuration(time, box, energy, nucleotides) for time, box, energy, nucleotides in configurations]
+        return [Configuration(time, box, energy, nucleotides, backbone=self.backbone)
+                for time, box, energy, nucleotides in configurations]
 
     def __getitem__(self, index: int):
         if not isinstance(index, int):
