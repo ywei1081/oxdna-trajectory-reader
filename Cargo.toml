@@ -9,6 +9,6 @@ name = "oxdna_trajectory_reader"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "^0.23.1"
-numpy = "0.23.0"
+pyo3 = { version = "0.27", features = ["extension-module", "abi3-py38"] }
+numpy = "0.27.1"
 rayon = "1.10.0"
