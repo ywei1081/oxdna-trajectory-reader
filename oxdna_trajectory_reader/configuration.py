@@ -38,6 +38,9 @@ class Configuration:
     :param energy: 1x3 np.array
     :param nucleotides: Nx15 np.array
     :param backbone_type: model geometry to use to calculate backbone center, 'oxDNA1', 'oxDNA2', or 'RNA'
+
+    Use `position`, `a1s`, `a3s` attributes to access basic coordinate info
+    Use `a2s`, `base_end_positions`, `base_center_positions`, `backbone_center_positions` for derived info
     """
 
     def __init__(self, time: int, box: npt.NDArray[np.float64], energy: npt.NDArray[np.float64],

@@ -97,6 +97,9 @@ class Trajectory:
     :param file_path: path to trajectory or configuration file
     :param chunk_size: number of configurations to read at a time during iteration
     :param backbone: type of `Configuration.backbone`, 'oxDNA1', 'oxDNA2', or 'RNA'
+
+    Provides list-like interface for accessing configurations in a trajectory file
+    Use index or for-in to access frames inside a trajectory
     """
     def __init__(self, file_path: str, chunk_size: int = CHUNK_SIZE, backbone_type='oxDNA2'):
         self.file_path = file_path
