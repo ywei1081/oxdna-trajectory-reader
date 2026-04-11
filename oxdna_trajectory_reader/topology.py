@@ -29,9 +29,9 @@ class Topology:
                 assert strand_id not in strands
                 strands[strand_id] = [index, index, next, [monomer]]
             else:
-                assert prev == index - 1
-                assert strands[strand_id][1] == prev
-                assert strands[strand_id][2] == index
+                assert prev == index - 1, 'only continuous index is supported'
+                assert strands[strand_id][1] == prev, 'only continuous index is supported'
+                assert strands[strand_id][2] == index, 'only continuous index is supported'
                 strands[strand_id][1] = index
                 strands[strand_id][2] = next
                 strands[strand_id][3].append(monomer)
@@ -42,6 +42,20 @@ class Topology:
             strand_id: Strand(start=strand[0], end=strand[1], sequence=''.join(strand[3]))
             for strand_id, strand in strands.items()
         }, n_monomer
+
+    def dumps(self):
+        out = [f'{sum(len(s) for s in self)} {len(self)}']
+        for strand_id, strand in self.strands.items():
+            assert (index := len(out) - 1) == strand.start
+            for monomer in strand.sequence:
+                index = len(out) - 1
+                out.append(f'{strand_id} {monomer} {index - 1 if index > strand.start else -1} {index+1 if index < strand.end else -1}')
+            assert (index := len(out) - 1) == strand.end + 1
+        return '\n'.join(out)
+
+    def dump_to_file(self, file_path):
+        with open(file_path, 'wt', encoding='utf-8', newline='\n') as f:
+            f.write(self.dumps())
 
     def __len__(self):
         return len(self.strands)
