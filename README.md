@@ -6,10 +6,11 @@ This is a module for reading oxDNA trajectory data at faster speed. Coordinates 
 ## Usage
 
 ```python
-from oxdna_trajectory_reader import Trajectory, Topology, dumps_configurations
+import numpy as np
+from oxdna_trajectory_reader import TrajReader, Topology, Configuration, dumps_configurations, NM_PER_UNIT_LENGTH
 
-trajectory = Trajectory('trajectory.dat')
-for configuration in trajectory:
+traj = TrajReader('trajectory.dat')
+for configuration in traj[:10:2]:
     print(configuration.time)
     print(configuration.box)
     print(configuration.energy)
@@ -17,14 +18,20 @@ for configuration in trajectory:
     print(configuration.a1s[:10])
     print(configuration.a3s[:10])
 
+    # changes on nucleotide references will affect their configuration
     nucleotide = configuration[0]
     nucleotides_slice = configuration[3:10]
-third_conf_frame = trajectory[2]
+
+third_conf_frame = traj[2]
+third_conf_frame.positions += np.random.random(3)
+# reader does not keep changes, access to reader creates new original object
+original = traj[2]
+assert third_conf_frame.dumps() != original.dumps()
 
 topology = Topology('topology.top')
 strand = topology[0]
-sliced = strand.slice(trajectory[2])
+sliced = strand.slice(traj[2])
 
 with open('traj_slice.dat', 'wt') as f:
-    f.write('\n'.join(dumps_configurations([traj[i] for i in range(5, 10)])))
+    f.write(''.join(dumps_configurations([traj[i] for i in range(5, 10)])))
 ```

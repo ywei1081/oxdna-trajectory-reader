@@ -2,7 +2,7 @@ from __future__ import annotations
 import typing
 
 from .configuration import Configuration, ConfigurationSlice
-from .trajectory import Trajectory
+from .trajectory import TrajReader
 
 
 class Topology:
@@ -83,13 +83,13 @@ class Strand:
         ...
 
     @typing.overload
-    def slice(self, conf_or_traj: Trajectory) -> TrajectorySlice:
+    def slice(self, conf_or_traj: TrajReader) -> TrajectorySlice:
         ...
 
-    def slice(self, conf_or_traj: Configuration | Trajectory):
+    def slice(self, conf_or_traj: Configuration | TrajReader):
         if isinstance(conf_or_traj, Configuration):
             return conf_or_traj[self.start:self.end + 1]
-        elif isinstance(conf_or_traj, Trajectory):
+        elif isinstance(conf_or_traj, TrajReader):
             return TrajectorySlice(conf_or_traj, self)
         else:
             raise TypeError(f'Expect either Configuration of Trajectory, got {type(conf_or_traj)}')
@@ -102,7 +102,7 @@ class Strand:
 
 
 class TrajectorySlice:
-    def __init__(self, traj: Trajectory, strand: Strand):
+    def __init__(self, traj: TrajReader, strand: Strand):
         self._trajectory = traj
         self._strand = strand
 

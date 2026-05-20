@@ -34,9 +34,9 @@ class Configuration:
     A configuration frame of the system
 
     :param time: int
-    :param box: 1x3 np.array
-    :param energy: 1x3 np.array
-    :param nucleotides: Nx15 np.array
+    :param box: (3,) np.array
+    :param energy: (3,) np.array
+    :param nucleotides: (N, 15) np.array
     :param backbone_type: model geometry to use to calculate backbone center, 'oxDNA1', 'oxDNA2', or 'RNA'
 
     Use `position`, `a1s`, `a3s` attributes to access basic coordinate info
@@ -51,7 +51,7 @@ class Configuration:
         self._nucleotides = nucleotides
         self.backbone_type = backbone_type
 
-    def to_str(self) -> str:
+    def dumps(self) -> str:
         """Convert configuration to string using trajectory file format"""
         return _dumps_configurations([(self.time, self.box, self.energy, self._nucleotides)])[0]
 

@@ -40,7 +40,10 @@ impl LineReader {
                 if bytes_read == 0 {
                     self.reached_end = true;
                 }
-                Ok(())
+                match self.line.as_str() {
+                    "\n" | "\r\n" => self.read_line(),
+                    _ => Ok(()),
+                }
             }
             Err(e) => {
                 self.bytes_read = 0;

@@ -10,10 +10,11 @@ from .oxdna_trajectory_reader import read_configurations, read_indicies
 
 
 CHUNK_SIZE = 20
+CACHE_LIMIT_RATIO = 3
 
 
 class TrajFileIdx:
-    def __init__(self, trajectory: Trajectory):
+    def __init__(self, trajectory: TrajReader):
         self.file_path = trajectory.file_path
         self._file_size = trajectory._file_size
         self._chunk_size = trajectory._chunk_size
@@ -33,7 +34,7 @@ class TrajFileIdx:
                 data = json.load(f)
                 end_offsets = [int(offset + length) for offset, length, _ in data]
                 assert all(i == index for i, (_, _, index) in enumerate(data))
-                assert all(s == e for s, e in zip(data[1:], end_offsets[:-1]))
+                assert all(s[0] == e for s, e in zip(data[1:], end_offsets[:-1]))
                 assert end_offsets[-1] == self._file_size
                 return end_offsets
         return []
@@ -90,7 +91,7 @@ class TrajFileIdx:
         return len(self._end_offsets)
 
 
-class Trajectory:
+class TrajReader:
     """
     Wrapper for oxDNA trajectory or configuration file
 
@@ -117,7 +118,7 @@ class Trajectory:
         self._idx.ensure_indicies()
 
     def _load_conf(self, index: int, chunk_size: int):
-        assert index >= 0
+        assert index >= 0, index
         offset = self._idx[index]
         offsets, configurations = read_configurations(self.file_path, offset, chunk_size)
         self._idx._update_end_offsets(index, offsets)
@@ -125,41 +126,47 @@ class Trajectory:
             index + step: Configuration(time, box, energy, nucleotides, backbone_type=self.backbone_type)
             for step, (time, box, energy, nucleotides) in enumerate(configurations)
         })
-        return self._cached_confs
+        return len(configurations) == chunk_size
 
-    def _take_cached_config(self, index: int):
-        assert index >= 0
-        return self._cached_confs.pop(index, None)
-
-    def _get_conf_at(self, index: int, chunk_size: int):
-        assert index >= 0 and chunk_size > 0
-        if cached := self._take_cached_config(index):
+    def _get_conf_at(self, index: int, chunk_size: int, forward=True):
+        assert index >= 0 and chunk_size > 0, (index, chunk_size)
+        if cached := self._cached_confs.pop(index, None):
             return cached
-        return self._load_conf(index, chunk_size)[0]
+        if forward:
+            self._load_conf(index, chunk_size)
+        else:
+            if not self._load_conf(max(0, index - chunk_size + 1), min(index + 1, chunk_size)):
+                raise IndexError
+        return self._cached_confs.pop(index)
 
     def _iter_forward(self, start: int, stop: int | None, step: int):
-        assert start >= 0 and step > 0
+        assert start >= 0 and (stop or 0) >= 0 and step > 0, (start, stop, step)
+        # cache is not helpful when skip is huge
         chunk_size = self._chunk_size if self._chunk_size > step else 1
         for index in itertools.count(start, step):
             if stop is not None and index >= stop:
                 break
             try:
-                yield self._get_conf_at(index, chunk_size)
+                yield self._get_conf_at(index, chunk_size, forward=True)
+                while self._cached_confs and (key := next(iter(self._cached_confs))) < index:
+                    self._cached_confs.pop(key)
             except IndexError:
                 break
 
     def _iter_backward(self, start: int, stop: int | None, step: int):
-        assert start >= 0 and step < 0
+        assert start >= -1 and (stop or 0) >= -1 and step < 0, (start, stop, step)
+        # cache is not helpful when skip is huge
         chunk_size = self._chunk_size if self._chunk_size > -step else 1
-        for index in itertools.count(start, step):
-            if index < 0 or (stop is not None and index <= stop):
-                break
-            if cached := self._take_cached_config(index):
-                yield cached
-            else:
-                self._load_conf(index - chunk_size + 1, chunk_size)
-                assert (conf := self._take_cached_config(index)) is not None
-                yield conf
+        index = start
+        while index > (-1 if stop is None else stop):
+            try:
+                yield self._get_conf_at(index, chunk_size, forward=False)
+                while self._cached_confs and (key := next(iter(self._cached_confs))) > index:
+                    self._cached_confs.pop(key)
+                index += step
+            except IndexError:
+                assert not self._idx._is_partial_indicies and index >= self.length
+                index = self.length - 1
 
     @typing.overload
     def __getitem__(self, index: int) -> Configuration:
@@ -175,16 +182,20 @@ class Trajectory:
                 if index < -self.length:
                     raise IndexError(f'index={index} is out of bounds for trajectory length={self.length}')
                 index += self.length
+            while len(self._cached_confs) > CACHE_LIMIT_RATIO * self._chunk_size:
+                self._cached_confs.pop(next(iter(self._cached_confs)))
             return self._get_conf_at(index, self._chunk_size)
         elif isinstance(index, slice):
+            if index.step == 0:
+                raise ValueError('slice step cannot be zero')
             if (step := int(index.step or 1)) > 0:
-                if (index.start or 0) >= 0:
-                    return self._iter_forward(index.start or 0, index.stop, step)
-                return self._iter_forward(*index.indices(self.length))
+                if (index.start or 0) < 0 or (index.stop or 0) < 0:
+                    return self._iter_forward(*index.indices(self.length))
+                return self._iter_forward(index.start or 0, index.stop, step)
             else:
-                if index.start and index.start >= 0:
-                    return self._iter_backward(index.start, index.stop, step)
-                return self._iter_backward(*index.indices(self.length))
+                if index.start is None or index.start < 0 or (index.stop or 0) < 0:
+                    return self._iter_backward(*index.indices(self.length))
+                return self._iter_backward(index.start, index.stop, step)
         else:
             raise TypeError(f'invalid index type: {type(index)}')
 

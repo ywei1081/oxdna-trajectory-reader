@@ -4,7 +4,7 @@ import os
 import time
 import numpy as np
 import h5py  # HDF5 for Python
-from oxdna_trajectory_reader import Trajectory
+from oxdna_trajectory_reader import TrajReader
 
 
 def write_mat7_3_header(fn):
@@ -31,7 +31,7 @@ def save_mat7_3(out_fn, variables, confs):
 def convert(traj_fn, out_fn):
     print(f'reading trajectory from "{traj_fn}"...', flush=True, end='')
     start_ts = time.time()
-    traj = Trajectory(traj_fn, chunk_size=1000)
+    traj = TrajReader(traj_fn, chunk_size=1000)
     times = []
     boxes = []
     energies = []
@@ -54,7 +54,7 @@ def convert_iter(traj_fn, out_fn):
     print(f'converting trajectory from "{traj_fn}"...', flush=True)
     start_ts = time.time()
 
-    traj = Trajectory(traj_fn)
+    traj = TrajReader(traj_fn)
     conf = traj[0]
     shapes = {
         'all_time': (traj.length,),
